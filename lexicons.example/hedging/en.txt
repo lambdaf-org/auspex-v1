@@ -1,0 +1,10 @@
+# hedging markers — uncertainty / qualifier words
+# expand substantially before relying on this for measurement
+maybe
+perhaps
+possibly
+might
+could
+sort of
+kind of
+i think

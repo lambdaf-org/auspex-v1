@@ -1,0 +1,10 @@
+# positive-affect words
+# expand substantially before relying on this for measurement
+good
+great
+happy
+love
+nice
+wonderful
+amazing
+excited

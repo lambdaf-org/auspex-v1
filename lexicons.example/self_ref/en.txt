@@ -1,0 +1,10 @@
+# self-reference words — first-person pronouns and possessives
+# expand substantially before relying on this for measurement
+i
+me
+my
+myself
+mine
+we
+us
+our

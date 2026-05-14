@@ -1,0 +1,15 @@
+/target
+/profiles
+/index
+/insights
+/data
+/lexicons
+graph.html
+config.json
+*.txt
+.fastembed*
+
+# but allow the example template to be tracked (cp -r lexicons.example lexicons on clone)
+!/lexicons.example/
+!/lexicons.example/**
+

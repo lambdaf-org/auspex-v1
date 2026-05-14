@@ -1,0 +1,10 @@
+# negative-affect words
+# expand substantially before relying on this for measurement
+bad
+terrible
+hate
+awful
+sad
+angry
+worried
+stressed

@@ -1,0 +1,9 @@
+# certainty markers — high-confidence assertion words
+# expand substantially before relying on this for measurement
+absolutely
+definitely
+certainly
+clearly
+obviously
+of course
+without doubt

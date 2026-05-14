@@ -1,0 +1,1879 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>auspex · {sov}</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap"
+      rel="stylesheet" />
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        font-family: "DM Sans", sans-serif;
+        background: #08080d;
+        color: #b8b8c8;
+        overflow: hidden;
+        height: 100vh;
+      }
+      #canvas {
+        position: absolute;
+        inset: 0;
+      }
+      .hud {
+        position: fixed;
+        top: 20px;
+        left: 24px;
+        z-index: 10;
+        pointer-events: none;
+      }
+      .hud h1 {
+        font-size: 13px;
+        font-weight: 500;
+        letter-spacing: 3px;
+        text-transform: uppercase;
+        color: #3a3a4a;
+      }
+      .hud .tag {
+        font-size: 11px;
+        color: #c9a227;
+        margin-top: 3px;
+        font-family: "JetBrains Mono", monospace;
+      }
+      .nav-input {
+        display: block;
+        width: 100%;
+        padding: 7px 10px;
+        margin-bottom: 8px;
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid rgba(255, 255, 255, 0.07);
+        border-radius: 6px;
+        color: #c0c0d0;
+        font-family: "DM Sans", sans-serif;
+        font-size: 12px;
+        outline: none;
+        box-sizing: border-box;
+      }
+      .nav-input:focus {
+        border-color: rgba(201, 162, 39, 0.35);
+        background: rgba(255, 255, 255, 0.06);
+      }
+      .radar-hint {
+        margin-top: 10px;
+        padding-top: 10px;
+        border-top: 1px solid rgba(255, 255, 255, 0.04);
+        font-size: 9px;
+        color: #3a3a4a;
+        letter-spacing: 1px;
+        font-family: "JetBrains Mono", monospace;
+        line-height: 1.7;
+      }
+      #sb {
+        position: fixed;
+        right: 0;
+        top: 0;
+        width: 460px;
+        height: 100vh;
+        background: rgba(10, 10, 16, 0.94);
+        backdrop-filter: blur(20px);
+        border-left: 1px solid rgba(255, 255, 255, 0.04);
+        transform: translateX(100%);
+        transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        z-index: 20;
+        overflow-y: auto;
+      }
+      #sb.open {
+        transform: translateX(0);
+      }
+      #sb::-webkit-scrollbar {
+        width: 3px;
+      }
+      #sb::-webkit-scrollbar-thumb {
+        background: #222;
+        border-radius: 2px;
+      }
+      .sh {
+        padding: 28px 24px 20px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+      }
+      .sh h2 {
+        font-size: 20px;
+        font-weight: 700;
+        color: #e0e0ec;
+      }
+      .sh .meta {
+        font-size: 11px;
+        color: #4a4a5a;
+        margin-top: 4px;
+        font-family: "JetBrains Mono", monospace;
+      }
+      .badge {
+        display: inline-block;
+        font-size: 9px;
+        padding: 2px 7px;
+        border-radius: 3px;
+        background: rgba(201, 162, 39, 0.12);
+        color: #c9a227;
+        margin-left: 8px;
+        font-family: "JetBrains Mono", monospace;
+        vertical-align: middle;
+      }
+      .xbtn {
+        width: 28px;
+        height: 28px;
+        border-radius: 6px;
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        background: transparent;
+        color: #555;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .xbtn:hover {
+        color: #aaa;
+      }
+      .sec {
+        padding: 16px 24px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.02);
+      }
+      .lbl {
+        font-size: 9px;
+        font-weight: 700;
+        letter-spacing: 2px;
+        text-transform: uppercase;
+        color: #3a5a7a;
+        margin-bottom: 6px;
+      }
+      .txt {
+        font-size: 13px;
+        line-height: 1.65;
+        color: #8a8aa0;
+      }
+      .txt.nil {
+        color: #2a2a3a;
+        font-style: italic;
+      }
+      .beh-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 6px;
+      }
+      .beh-item {
+        padding: 8px;
+        border-radius: 5px;
+        background: rgba(255, 255, 255, 0.015);
+        border: 1px solid rgba(255, 255, 255, 0.03);
+      }
+      .beh-val {
+        font-size: 16px;
+        font-weight: 700;
+        color: #c0c0d0;
+        font-family: "JetBrains Mono", monospace;
+      }
+      .beh-name {
+        font-size: 9px;
+        color: #4a4a5a;
+        margin-top: 2px;
+      }
+      .rx-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 6px;
+      }
+      .theme {
+        padding: 12px 14px;
+        margin: 5px 0;
+        border-radius: 6px;
+        background: rgba(255, 255, 255, 0.015);
+        border: 1px solid rgba(255, 255, 255, 0.03);
+      }
+      .theme-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 6px;
+      }
+      .theme-name {
+        font-size: 12px;
+        color: #8a9ab0;
+        font-weight: 500;
+      }
+      .theme-meta {
+        font-size: 10px;
+        color: #4a5a6a;
+        font-family: "JetBrains Mono", monospace;
+      }
+      .theme-bar {
+        height: 3px;
+        border-radius: 2px;
+        margin-bottom: 6px;
+      }
+      .theme-analysis {
+        font-size: 12px;
+        color: #7a7a90;
+        line-height: 1.5;
+      }
+      .theme-contra {
+        font-size: 11px;
+        color: #6a5a4a;
+        margin-top: 4px;
+        font-style: italic;
+      }
+      .pred {
+        padding: 12px 14px;
+        margin: 5px 0;
+        border-radius: 6px;
+        background: rgba(201, 162, 39, 0.03);
+        border: 1px solid rgba(201, 162, 39, 0.08);
+      }
+      .pred-action {
+        font-size: 13px;
+        color: #c0b080;
+        font-weight: 500;
+        margin-bottom: 4px;
+      }
+      .pred-meta {
+        font-size: 10px;
+        color: #6a5a4a;
+        font-family: "JetBrains Mono", monospace;
+        margin-bottom: 4px;
+      }
+      .pred-conf {
+        display: inline-block;
+        width: 40px;
+        height: 4px;
+        border-radius: 2px;
+        background: rgba(255, 255, 255, 0.05);
+        margin-right: 6px;
+        vertical-align: middle;
+      }
+      .pred-conf-fill {
+        height: 100%;
+        border-radius: 2px;
+        background: #c9a227;
+      }
+      .pred-evidence {
+        font-size: 11px;
+        color: #5a5a6a;
+        line-height: 1.4;
+      }
+      .cog-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 6px;
+      }
+      .cog-item {
+        padding: 8px 10px;
+        border-radius: 5px;
+        background: rgba(255, 255, 255, 0.015);
+        border: 1px solid rgba(255, 255, 255, 0.03);
+      }
+      .cog-name {
+        font-size: 9px;
+        color: #4a4a5a;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+      }
+      .cog-val {
+        font-size: 13px;
+        color: #c0c0d0;
+        font-family: "JetBrains Mono", monospace;
+        margin-top: 2px;
+      }
+      .cog-z {
+        display: inline-block;
+        margin-left: 6px;
+        font-size: 10px;
+        color: #6a8aa8;
+        font-family: "JetBrains Mono", monospace;
+      }
+      .zbar {
+        display: block;
+        height: 3px;
+        border-radius: 2px;
+        background: rgba(255, 255, 255, 0.05);
+        margin-top: 4px;
+        position: relative;
+      }
+      .zbar-fill {
+        position: absolute;
+        top: 0;
+        height: 100%;
+        border-radius: 2px;
+        background: #3a7bd5;
+      }
+      .zbar-zero {
+        position: absolute;
+        left: 50%;
+        top: -2px;
+        width: 1px;
+        height: 7px;
+        background: rgba(255, 255, 255, 0.15);
+      }
+      .theme-support {
+        margin-top: 6px;
+        font-size: 11px;
+        color: #5a6a7a;
+      }
+      .theme-support-q {
+        padding: 4px 8px;
+        margin: 3px 0;
+        border-left: 2px solid rgba(58, 123, 213, 0.3);
+        background: rgba(255, 255, 255, 0.012);
+        font-style: italic;
+      }
+      .theme-falsify {
+        font-size: 10px;
+        color: #8a6a4a;
+        margin-top: 6px;
+        font-family: "JetBrains Mono", monospace;
+      }
+      .bf-row {
+        margin: 8px 0;
+      }
+      .bf-name {
+        font-size: 10px;
+        letter-spacing: 2px;
+        text-transform: uppercase;
+        color: #5a6a7a;
+        margin-bottom: 4px;
+      }
+      .bf-count {
+        display: inline-block;
+        font-size: 9px;
+        color: #4a4a5a;
+        font-family: "JetBrains Mono", monospace;
+        margin-left: 6px;
+      }
+      .bf-q {
+        padding: 4px 8px;
+        margin: 3px 0;
+        border-radius: 4px;
+        background: rgba(255, 255, 255, 0.012);
+        font-size: 11px;
+        color: #7a7a8a;
+        border-left: 2px solid rgba(80, 100, 140, 0.3);
+      }
+      .claim {
+        padding: 10px 12px;
+        margin: 5px 0;
+        border-radius: 5px;
+        background: rgba(255, 255, 255, 0.012);
+        border: 1px solid rgba(255, 255, 255, 0.03);
+      }
+      .claim-text {
+        font-size: 12px;
+        color: #a0a0b0;
+      }
+      .claim-meta {
+        font-size: 10px;
+        font-family: "JetBrains Mono", monospace;
+        margin-top: 4px;
+      }
+      .claim-verdict-consistent {
+        color: #5aa07a;
+      }
+      .claim-verdict-inconsistent {
+        color: #c87a7a;
+      }
+      .claim-verdict-unverifiable {
+        color: #8a8a5a;
+      }
+      .claim-verdict-not-literal {
+        color: #7a7aa0;
+      }
+      .claim-rationale {
+        font-size: 11px;
+        color: #6a6a7a;
+        margin-top: 4px;
+        line-height: 1.4;
+      }
+      .claim-ev {
+        font-size: 10px;
+        color: #5a5a6a;
+        margin-top: 4px;
+        font-style: italic;
+        line-height: 1.4;
+      }
+      .disclaimer {
+        font-size: 10px;
+        color: #4a4a5a;
+        font-style: italic;
+        line-height: 1.4;
+        padding: 8px 0;
+      }
+      #radar {
+        position: fixed;
+        left: 24px;
+        top: 74px;
+        width: 340px;
+        max-height: calc(100vh - 120px);
+        overflow-y: auto;
+        z-index: 15;
+        background: rgba(10, 10, 16, 0.92);
+        backdrop-filter: blur(14px);
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        border-radius: 10px;
+        padding: 14px 16px;
+        transition: transform 0.25s;
+      }
+      #radar.collapsed {
+        transform: translateX(-330px);
+      }
+      #radar::-webkit-scrollbar {
+        width: 3px;
+      }
+      #radar::-webkit-scrollbar-thumb {
+        background: #222;
+        border-radius: 2px;
+      }
+      .radar-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 10px;
+      }
+      .radar-title {
+        font-size: 11px;
+        letter-spacing: 3px;
+        text-transform: uppercase;
+        color: #c9a227;
+        font-family: "JetBrains Mono", monospace;
+      }
+      .radar-toggle {
+        background: transparent;
+        border: 1px solid rgba(255, 255, 255, 0.07);
+        color: #666;
+        cursor: pointer;
+        border-radius: 5px;
+        font-size: 10px;
+        padding: 3px 8px;
+        font-family: "JetBrains Mono", monospace;
+      }
+      .radar-filter {
+        font-size: 10px;
+        color: #4a4a5a;
+        margin-bottom: 8px;
+        font-family: "JetBrains Mono", monospace;
+      }
+      .insight {
+        padding: 9px 11px;
+        margin: 4px 0;
+        border-radius: 6px;
+        background: rgba(255, 255, 255, 0.014);
+        border-left: 3px solid #444;
+        cursor: pointer;
+        transition: background 0.15s;
+      }
+      .insight:hover {
+        background: rgba(255, 255, 255, 0.04);
+      }
+      .insight.crit {
+        border-left-color: #d04a4a;
+        background: rgba(208, 74, 74, 0.04);
+      }
+      .insight.high {
+        border-left-color: #c9a227;
+        background: rgba(201, 162, 39, 0.04);
+      }
+      .insight.med {
+        border-left-color: #6a8aa8;
+      }
+      .insight.low {
+        border-left-color: #444;
+        opacity: 0.7;
+      }
+      .insight-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 3px;
+      }
+      .insight-person {
+        font-size: 11px;
+        font-weight: 600;
+        color: #c0c0d0;
+      }
+      .insight-meta {
+        font-size: 9px;
+        color: #5a5a6a;
+        font-family: "JetBrains Mono", monospace;
+      }
+      .insight-summary {
+        font-size: 11px;
+        color: #9898a8;
+        line-height: 1.4;
+      }
+      .insight-details {
+        font-size: 10px;
+        color: #6a6a7a;
+        margin-top: 4px;
+        line-height: 1.4;
+        display: none;
+      }
+      .insight.expanded .insight-details {
+        display: block;
+      }
+      .insight-quote {
+        font-size: 10px;
+        color: #5a5a6a;
+        margin-top: 4px;
+        padding-left: 8px;
+        border-left: 2px solid rgba(255, 255, 255, 0.05);
+        font-style: italic;
+        display: none;
+      }
+      .insight.expanded .insight-quote {
+        display: block;
+      }
+      .insight-empty {
+        color: #3a3a4a;
+        font-style: italic;
+        font-size: 11px;
+        padding: 8px 0;
+        text-align: center;
+      }
+      #pp {
+        position: fixed;
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%);
+        z-index: 40;
+        width: 540px;
+        max-height: 80vh;
+        overflow-y: auto;
+        background: rgba(12, 12, 18, 0.97);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 12px;
+        padding: 22px;
+        display: none;
+        backdrop-filter: blur(20px);
+      }
+      #pp.open {
+        display: block;
+      }
+      .pp-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 14px;
+      }
+      .pp-title {
+        font-size: 16px;
+        font-weight: 600;
+        color: #e0e0ec;
+      }
+      .pp-warmth {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 11px;
+        padding: 2px 8px;
+        border-radius: 3px;
+      }
+      .pp-warmth.warm {
+        background: rgba(90, 180, 110, 0.18);
+        color: #7aaa7a;
+      }
+      .pp-warmth.cold {
+        background: rgba(200, 90, 90, 0.18);
+        color: #c87a7a;
+      }
+      .pp-warmth.neutral {
+        background: rgba(120, 120, 140, 0.1);
+        color: #8a8aa0;
+      }
+      .pp-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+        margin: 10px 0;
+      }
+      .pp-col {
+        padding: 10px 12px;
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.015);
+        border: 1px solid rgba(255, 255, 255, 0.03);
+      }
+      .pp-col-h {
+        font-size: 10px;
+        letter-spacing: 2px;
+        text-transform: uppercase;
+        color: #5a6a7a;
+        margin-bottom: 6px;
+        font-weight: 600;
+      }
+      .pp-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 3px 0;
+        font-size: 12px;
+        color: #9898a8;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.015);
+      }
+      .pp-row span:last-child {
+        color: #c0c0d0;
+        font-family: "JetBrains Mono", monospace;
+      }
+      .pp-sec {
+        margin-top: 12px;
+      }
+      .pp-sec-h {
+        font-size: 10px;
+        letter-spacing: 2px;
+        text-transform: uppercase;
+        color: #3a5a7a;
+        margin-bottom: 6px;
+        font-weight: 600;
+      }
+      .pp-topics {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+      }
+      .pp-topic {
+        padding: 2px 8px;
+        border-radius: 3px;
+        background: rgba(110, 150, 200, 0.1);
+        color: #8aa0c0;
+        font-size: 11px;
+        font-family: "JetBrains Mono", monospace;
+      }
+      .pp-tones {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+      }
+      .pp-tone {
+        padding: 2px 8px;
+        border-radius: 3px;
+        background: rgba(255, 255, 255, 0.025);
+        color: #8a8aa0;
+        font-size: 11px;
+        font-family: "JetBrains Mono", monospace;
+      }
+      .pp-tone.warm {
+        background: rgba(90, 180, 110, 0.12);
+        color: #7aaa7a;
+      }
+      .pp-tone.cold {
+        background: rgba(200, 90, 90, 0.12);
+        color: #c87a7a;
+      }
+      .pp-close {
+        cursor: pointer;
+        color: #666;
+        font-size: 18px;
+        background: transparent;
+        border: none;
+      }
+      .pp-close:hover {
+        color: #aaa;
+      }
+      .cog-trend {
+        display: inline-block;
+        margin-left: 6px;
+        font-size: 11px;
+        font-family: "JetBrains Mono", monospace;
+      }
+      .cog-trend.up {
+        color: #c87a4a;
+      }
+      .cog-trend.down {
+        color: #4a8acc;
+      }
+      .cog-trend.flat {
+        color: #4a4a5a;
+      }
+      .theme-status {
+        display: inline-block;
+        font-size: 9px;
+        font-family: "JetBrains Mono", monospace;
+        padding: 1px 5px;
+        border-radius: 3px;
+        margin-left: 6px;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+        vertical-align: middle;
+      }
+      .theme-status.active {
+        background: rgba(80, 140, 80, 0.18);
+        color: #7aaa7a;
+      }
+      .theme-status.fading {
+        background: rgba(140, 80, 80, 0.13);
+        color: #aa8a7a;
+      }
+      .theme-status.stable {
+        background: rgba(120, 120, 140, 0.1);
+        color: #7a7a8a;
+      }
+      .tip {
+        position: fixed;
+        padding: 6px 12px;
+        border-radius: 5px;
+        background: rgba(16, 16, 24, 0.95);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        font-size: 11px;
+        color: #a0a0b0;
+        pointer-events: none;
+        z-index: 30;
+        font-family: "JetBrains Mono", monospace;
+        display: none;
+      }
+      #qpanel {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        z-index: 25;
+        transition: transform 0.25s ease;
+      }
+      #qpanel.closed {
+        transform: translateY(100%);
+      }
+      #qreopen {
+        position: fixed;
+        bottom: 14px;
+        right: 14px;
+        z-index: 30;
+        display: none;
+        padding: 9px 16px;
+        border-radius: 22px;
+        border: 1px solid rgba(201, 162, 39, 0.3);
+        background: rgba(8, 8, 13, 0.92);
+        color: #c9a227;
+        cursor: pointer;
+        font-family: "JetBrains Mono", monospace;
+        font-size: 11px;
+        letter-spacing: 2px;
+        text-transform: uppercase;
+        backdrop-filter: blur(10px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+      }
+      #qreopen:hover {
+        background: rgba(201, 162, 39, 0.15);
+      }
+      #qpanel.closed ~ #qreopen {
+        display: block;
+      }
+      .fit-btn {
+        position: fixed;
+        bottom: 14px;
+        left: 24px;
+        z-index: 30;
+        padding: 7px 12px;
+        border-radius: 18px;
+        border: 1px solid rgba(255, 255, 255, 0.07);
+        background: rgba(8, 8, 13, 0.92);
+        color: #7a7a8a;
+        cursor: pointer;
+        font-family: "JetBrains Mono", monospace;
+        font-size: 10px;
+        letter-spacing: 1px;
+        backdrop-filter: blur(10px);
+      }
+      .fit-btn:hover {
+        background: rgba(255, 255, 255, 0.05);
+        color: #c0c0d0;
+      }
+      .qclose-btn {
+        margin-left: 4px;
+        width: 32px;
+        height: 36px;
+        border-radius: 8px;
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        background: transparent;
+        color: #666;
+        cursor: pointer;
+        font-size: 18px;
+        line-height: 1;
+      }
+      .qclose-btn:hover {
+        color: #aaa;
+        background: rgba(255, 255, 255, 0.03);
+      }
+      .node-flash {
+        animation: nodeFlash 1.4s ease-out;
+      }
+      @keyframes nodeFlash {
+        0% {
+          filter: drop-shadow(0 0 0 #c9a227);
+        }
+        30% {
+          filter: drop-shadow(0 0 18px #c9a227);
+        }
+        100% {
+          filter: drop-shadow(0 0 0 #c9a227);
+        }
+      }
+      #qbar {
+        padding: 10px 20px;
+        background: rgba(8, 8, 13, 0.97);
+        border-top: 1px solid rgba(255, 255, 255, 0.05);
+        display: flex;
+        gap: 8px;
+        align-items: center;
+      }
+      #qin {
+        flex: 1;
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(255, 255, 255, 0.07);
+        border-radius: 8px;
+        padding: 10px 14px;
+        color: #c0c0d0;
+        font-family: "DM Sans", sans-serif;
+        font-size: 13px;
+        outline: none;
+      }
+      #qin:focus {
+        border-color: rgba(201, 162, 39, 0.3);
+      }
+      #qsend {
+        padding: 10px 18px;
+        border-radius: 8px;
+        border: none;
+        background: #c9a227;
+        color: #0a0a0f;
+        font-weight: 700;
+        cursor: pointer;
+        font-size: 13px;
+      }
+      #qsend:hover {
+        background: #d4af37;
+      }
+      #qsend:disabled {
+        opacity: 0.4;
+        cursor: default;
+      }
+      #sessions {
+        display: flex;
+        gap: 4px;
+        margin-right: 8px;
+      }
+      .stab {
+        padding: 4px 10px;
+        border-radius: 5px;
+        font-size: 11px;
+        cursor: pointer;
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        color: #5a5a6a;
+        font-family: "JetBrains Mono", monospace;
+      }
+      .stab.active {
+        background: rgba(201, 162, 39, 0.1);
+        border-color: rgba(201, 162, 39, 0.2);
+        color: #c9a227;
+      }
+      .stab-add {
+        color: #3a3a4a;
+        font-size: 14px;
+        padding: 4px 8px;
+        cursor: pointer;
+      }
+      #qhistory {
+        max-height: 55vh;
+        overflow-y: auto;
+        background: rgba(8, 8, 13, 0.97);
+        border-top: 1px solid rgba(255, 255, 255, 0.03);
+        display: none;
+        padding: 0 20px;
+      }
+      #qhistory::-webkit-scrollbar {
+        width: 3px;
+      }
+      #qhistory::-webkit-scrollbar-thumb {
+        background: #1a1a2a;
+        border-radius: 2px;
+      }
+      .qmsg {
+        padding: 14px 0;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.02);
+      }
+      .qmsg-role {
+        font-size: 9px;
+        font-weight: 700;
+        letter-spacing: 2px;
+        text-transform: uppercase;
+        margin-bottom: 6px;
+      }
+      .qmsg-role.user {
+        color: #c9a227;
+      }
+      .qmsg-role.assistant {
+        color: #3a7bd5;
+      }
+      .qmsg-body {
+        font-size: 13px;
+        line-height: 1.7;
+        color: #9898a8;
+      }
+      .qmsg-body h1,
+      .qmsg-body h2,
+      .qmsg-body h3 {
+        color: #c0c0d0;
+        margin: 10px 0 6px;
+        font-size: 14px;
+      }
+      .qmsg-body p {
+        margin: 4px 0;
+      }
+      .qmsg-body ul,
+      .qmsg-body ol {
+        margin: 4px 0 4px 20px;
+      }
+      .qmsg-body li {
+        margin: 2px 0;
+      }
+      .qmsg-body code {
+        background: rgba(255, 255, 255, 0.05);
+        padding: 1px 5px;
+        border-radius: 3px;
+        font-family: "JetBrains Mono", monospace;
+        font-size: 12px;
+      }
+      .qmsg-body pre {
+        background: rgba(255, 255, 255, 0.03);
+        padding: 10px;
+        border-radius: 6px;
+        overflow-x: auto;
+        margin: 6px 0;
+      }
+      .qmsg-body pre code {
+        background: none;
+        padding: 0;
+      }
+      .qmsg-body strong {
+        color: #b0b0c0;
+      }
+      .qmsg-body em {
+        color: #8a8aa0;
+      }
+      .qmsg-body blockquote {
+        border-left: 2px solid rgba(201, 162, 39, 0.3);
+        padding-left: 12px;
+        margin: 6px 0;
+        color: #7a7a8a;
+      }
+      #thinking {
+        display: none;
+        padding: 10px 20px;
+        color: #4a4a5a;
+        font-size: 12px;
+        font-family: "JetBrains Mono", monospace;
+        background: rgba(8, 8, 13, 0.97);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="hud">
+      <h1>auspex</h1>
+      <div class="tag">network intelligence · <span id="hud-self"></span></div>
+    </div>
+    <div id="canvas"></div>
+    <div class="tip" id="tip"></div>
+    <div id="pp">
+      <div class="pp-head">
+        <div class="pp-title" id="pp-title"></div>
+        <button class="pp-close" onclick="closePair()">&times;</button>
+      </div>
+      <div id="pp-body"></div>
+    </div>
+    <div id="radar">
+      <div class="radar-head">
+        <span class="radar-title">
+          Radar ·
+          <span id="radar-count">0</span>
+        </span>
+        <button class="radar-toggle" onclick="toggleRadar()" id="radar-btn">hide</button>
+      </div>
+      <input id="nav" class="nav-input" placeholder="jump to person…  (Ctrl+/)" autocomplete="off" />
+      <div class="radar-filter" id="radar-filter">all people · ranked by urgency</div>
+      <div id="radar-list"></div>
+      <div class="radar-hint">Esc close · Ctrl+K chat · Ctrl+/ jump · scroll = zoom · drag = pan · F = fit</div>
+    </div>
+    <div id="sb">
+      <div class="sh">
+        <div>
+          <h2 id="sn"></h2>
+          <div class="meta" id="sm"></div>
+        </div>
+        <button class="xbtn" onclick="document.getElementById('sb').classList.remove('open')">&times;</button>
+      </div>
+      <div class="sec" id="insights-sec" style="display: none">
+        <div class="lbl">Active Insights</div>
+        <div id="person-insights"></div>
+      </div>
+      <div class="sec" id="rx-sec" style="display: none">
+        <div class="lbl">Your Engagement</div>
+        <div class="rx-grid" id="rx"></div>
+      </div>
+      <div class="sec">
+        <div class="lbl">Summary</div>
+        <div class="txt" id="s-sum"></div>
+      </div>
+      <div class="sec">
+        <div class="lbl">Behavioral Signature</div>
+        <div class="beh-grid" id="beh"></div>
+      </div>
+      <div class="sec">
+        <div class="lbl">Identity</div>
+        <div class="txt" id="s-id"></div>
+      </div>
+      <div class="sec">
+        <div class="lbl">Anxiety</div>
+        <div class="txt" id="s-ax"></div>
+      </div>
+      <div class="sec">
+        <div class="lbl">Social Style</div>
+        <div class="txt" id="s-ss"></div>
+      </div>
+      <div class="sec">
+        <div class="lbl">Growth</div>
+        <div class="txt" id="s-gr"></div>
+      </div>
+      <div class="sec">
+        <div class="lbl">Vulnerability</div>
+        <div class="txt" id="s-vu"></div>
+      </div>
+      <div class="sec">
+        <div class="lbl">Cognitive Style</div>
+        <div class="cog-grid" id="cog"></div>
+        <div class="disclaimer" id="cog-disclaimer"></div>
+      </div>
+      <div class="sec">
+        <div class="lbl">Big Five Signals (citations, not scores)</div>
+        <div id="bf"></div>
+      </div>
+      <div class="sec">
+        <div class="lbl">Self-Claims vs Observed</div>
+        <div id="claims"></div>
+      </div>
+      <div class="sec">
+        <div class="lbl">Validated Themes</div>
+        <div id="themes"></div>
+      </div>
+      <div class="sec">
+        <div class="lbl">Predictions</div>
+        <div id="preds"></div>
+      </div>
+    </div>
+    <div id="qpanel" class="closed">
+      <div id="thinking">thinking...</div>
+      <div id="qhistory"></div>
+      <div id="qbar">
+        <div id="sessions"></div>
+        <span class="stab stab-add" onclick="newSession()" title="new context window">+</span>
+        <input id="qin" type="text" placeholder="ask about your network…  (Ctrl+K to toggle)" />
+        <button id="qsend" onclick="askQ()">Ask</button>
+        <button id="qclose" class="qclose-btn" onclick="toggleChat()" title="hide (Esc / Ctrl+K)">×</button>
+      </div>
+    </div>
+    <button id="qreopen" onclick="toggleChat()" title="open chat (Ctrl+K)">ask · Ctrl+K</button>
+    <button id="fitbtn" onclick="fitToView()" title="fit graph (F)" class="fit-btn">⛶ fit</button>
+    <script>
+      window.__DATA__ = /*AUSPEX_DATA*/ null;
+    </script>
+    <script>
+      const __D = window.__DATA__ || { nodes: [], edges: [], insights: [], sov: "", model: "" };
+      const N = __D.nodes;
+      const L = __D.edges;
+      const I = __D.insights;
+      const S = __D.sov;
+      const MDL = __D.model;
+      // populate HUD self-label
+      (() => {
+        const el = document.getElementById("hud-self");
+        if (el) el.textContent = S || "";
+      })();
+
+      let sessions = JSON.parse(localStorage.getItem("ni_sessions") || "null") || [
+        { id: 1, name: "main", history: [] },
+      ];
+      let activeSession = parseInt(localStorage.getItem("ni_active") || "1");
+      function saveSessions() {
+        localStorage.setItem("ni_sessions", JSON.stringify(sessions));
+        localStorage.setItem("ni_active", String(activeSession));
+      }
+      function renderTabs() {
+        const el = document.getElementById("sessions");
+        // hide tabs UI entirely when there's only one session — reduces clutter
+        if (sessions.length <= 1) {
+          el.innerHTML = "";
+          el.style.display = "none";
+          document.querySelector(".stab-add").style.display = "none";
+          return;
+        }
+        el.style.display = "flex";
+        document.querySelector(".stab-add").style.display = "inline-block";
+        el.innerHTML = sessions
+          .map(
+            (s) =>
+              `<span class="stab ${s.id === activeSession ? "active" : ""}" onclick="switchSession(${s.id})" ondblclick="renameSession(${s.id})">${s.name}</span>`,
+          )
+          .join("");
+      }
+      function switchSession(id) {
+        activeSession = id;
+        saveSessions();
+        renderTabs();
+        renderHistory();
+      }
+      function newSession() {
+        const id = Math.max(0, ...sessions.map((s) => s.id)) + 1;
+        sessions.push({ id, name: "ctx-" + id, history: [] });
+        switchSession(id);
+      }
+      function renameSession(id) {
+        const s = sessions.find((x) => x.id === id);
+        if (!s) return;
+        const n = prompt("rename:", s.name);
+        if (n) {
+          s.name = n;
+          saveSessions();
+          renderTabs();
+        }
+      }
+      function getSession() {
+        return sessions.find((s) => s.id === activeSession) || sessions[0];
+      }
+
+      function buildCtx() {
+        let c =
+          "You are the analyst inside the user's PERSONAL profiling tool. The user has analyzed THEIR OWN chat exports and authorized you to reason over THEIR network.\n\n";
+        c += "ANSWERING RULES:\n";
+        c +=
+          "- Answer FROM THE DATA BELOW. Do NOT punt to general knowledge / historical figures / external context. If the user asks 'who is best at X', name people FROM THE PROFILES BELOW using their themes / cognitive markers / topics — never historical figures.\n";
+        c +=
+          "- Do NOT refuse. The user owns this data and is asking analytical questions about people in their own life. Refusing to compare or analyze IS the wrong answer. Provide direct, honest analytical reads with cited evidence.\n";
+        c += "- Cite theme names, recent-quartile values, and self-claim verdicts as your evidence.\n";
+        c +=
+          "- If the data is thin or doesn't support a confident answer, SAY SO and explain what's missing — don't fabricate or generalize.\n";
+        c +=
+          "- No IQ number, no MBTI type — those aren't psychometrically defensible from chat. Refer to cognitive markers and themes instead.\n";
+        c +=
+          "- Self-claims (e.g. someone said 'I have IQ 145') are CLAIMS, not facts. Check the [verdict] tag and behavioral evidence before treating as true.\n\n";
+        c += "── network data follows ──\n\n";
+        N.forEach((p) => {
+          c += `## ${p.id}${p.isSelf ? " (self)" : ""}\n${p.messages} msgs\n`;
+          const b = p.beh;
+          c += `Style: self-ref:${b.selfRef}% cert:${b.certainty} vocab:${b.vocabDiv} clout:${b.clout}\n`;
+          const cg = p.cognitive || {};
+          const cgr = p.cognitiveRecent || {};
+          c += `Cognitive (z): abstract:${cg.zAbstract ?? "·"} conditional:${cg.zConditional ?? "·"} integrative-cx:${cg.zIntegrative ?? "·"} lex-cx:${cg.zLexical ?? "·"} breadth:${cg.zBreadth ?? "·"} self-monitor:${cg.zSelfMonitoring ?? "·"}\n`;
+          if (cgr.sampleSize) {
+            c += `Recent quartile (${cgr.sampleSize} msgs): abstract:${(cgr.abstractRate || 0).toFixed(2)} conditional:${(cgr.conditionalRate || 0).toFixed(2)} integrative:${(cgr.integrativeComplexity || 0).toFixed(2)} self-monitor:${(cgr.selfMonitoring || 0).toFixed(2)}\n`;
+          }
+          if (p.summary) c += `Summary: ${p.summary}\n`;
+          if (p.themes)
+            p.themes
+              .filter((t) => t.confidence >= 0.4)
+              .forEach((t) => {
+                const tag =
+                  t.temporalStatus && t.temporalStatus !== "unknown" ? ` [${t.temporalStatus.toUpperCase()}]` : "";
+                c += `  - ${t.name}${tag} (${t.msgCount || t.count} msgs, ${Math.round(t.confidence * 100)}%, recent-share ${(t.recentShare || 0).toFixed(2)}): ${t.analysis}\n`;
+              });
+          if (p.selfClaims && p.selfClaims.length) {
+            c += "  Self-claims:\n";
+            p.selfClaims.slice(0, 5).forEach((sc) => (c += `    [${sc.verdict}] "${sc.claim}" — ${sc.rationale}\n`));
+          }
+          if (p.predictions && p.predictions.length) {
+            c += "  Predictions:\n";
+            p.predictions.forEach(
+              (pr) => (c += `    → ${pr.action} (${Math.round(pr.confidence * 100)}%, ${pr.timeframe})\n`),
+            );
+          }
+          c += "\n";
+        });
+        return c;
+      }
+
+      function renderHistory() {
+        const el = document.getElementById("qhistory");
+        const s = getSession();
+        if (!s.history.length) {
+          el.style.display = "none";
+          return;
+        }
+        el.style.display = "block";
+        el.innerHTML = s.history
+          .map(
+            (m) =>
+              `<div class="qmsg"><div class="qmsg-role ${m.role}">${m.role}</div><div class="qmsg-body">${m.role === "assistant" ? marked.parse(m.content) : m.content}</div></div>`,
+          )
+          .join("");
+        el.scrollTop = el.scrollHeight;
+      }
+
+      async function askQ() {
+        const input = document.getElementById("qin");
+        const q = input.value.trim();
+        if (!q) return;
+        input.value = "";
+        const s = getSession();
+        s.history.push({ role: "user", content: q });
+        saveSessions();
+        renderHistory();
+        document.getElementById("thinking").style.display = "block";
+        document.getElementById("qsend").disabled = true;
+        const msgs = [
+          { role: "system", content: buildCtx() },
+          ...s.history.map((m) => ({ role: m.role, content: m.content })),
+        ];
+        try {
+          const r = await fetch("/api/chat", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              model: MDL,
+              messages: msgs,
+              stream: false,
+              options: { num_ctx: 131072, temperature: 0.4 },
+            }),
+          });
+          const d = await r.json();
+          s.history.push({ role: "assistant", content: d.message?.content || "no response" });
+        } catch (e) {
+          s.history.push({ role: "assistant", content: "Error: " + e.message });
+        }
+        saveSessions();
+        renderHistory();
+        document.getElementById("thinking").style.display = "none";
+        document.getElementById("qsend").disabled = false;
+      }
+      document.getElementById("qin").addEventListener("keydown", (e) => {
+        if (e.key === "Enter" && !e.shiftKey) {
+          e.preventDefault();
+          askQ();
+        }
+      });
+      renderTabs();
+      renderHistory();
+
+      // ── navigation: chat toggle, name jump, keyboard shortcuts ──
+      function toggleChat() {
+        const p = document.getElementById("qpanel");
+        const closed = p.classList.toggle("closed");
+        if (!closed) {
+          setTimeout(() => document.getElementById("qin").focus(), 100);
+        }
+      }
+      const navEl = document.getElementById("nav");
+      function flashNode(person) {
+        // visually pulse the matching node
+        d3.select("#canvas")
+          .selectAll("g")
+          .filter((d) => d && d.id === person)
+          .select("circle")
+          .classed("node-flash", false)
+          .node()
+          ?.getBoundingClientRect();
+        d3.select("#canvas")
+          .selectAll("g")
+          .filter((d) => d && d.id === person)
+          .select("circle")
+          .classed("node-flash", true);
+      }
+      function jumpTo(query) {
+        const q = query.trim().toLowerCase();
+        if (!q) return;
+        const match =
+          N.find((n) => n.id.toLowerCase() === q) ||
+          N.find((n) => n.id.toLowerCase().startsWith(q)) ||
+          N.find((n) => n.id.toLowerCase().includes(q));
+        if (match) {
+          openPerson(match);
+          flashNode(match.id);
+          return true;
+        }
+        return false;
+      }
+      navEl.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+          if (jumpTo(navEl.value)) {
+            navEl.value = "";
+            navEl.blur();
+          }
+        } else if (e.key === "Escape") {
+          navEl.value = "";
+          navEl.blur();
+        }
+      });
+      document.addEventListener("keydown", (e) => {
+        // ignore typing inside inputs (except Escape which still works)
+        const tag = (e.target.tagName || "").toLowerCase();
+        const inField = tag === "input" || tag === "textarea";
+        if (e.key === "Escape") {
+          const pp = document.getElementById("pp");
+          if (pp.classList.contains("open")) {
+            closePair();
+            return;
+          }
+          const sb = document.getElementById("sb");
+          if (sb.classList.contains("open")) {
+            sb.classList.remove("open");
+            return;
+          }
+          if (inField) {
+            e.target.blur();
+            return;
+          }
+          const qp = document.getElementById("qpanel");
+          if (!qp.classList.contains("closed")) {
+            toggleChat();
+            return;
+          }
+        }
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k" && !inField) {
+          e.preventDefault();
+          toggleChat();
+        }
+        if ((e.ctrlKey || e.metaKey) && e.key === "/") {
+          e.preventDefault();
+          navEl.focus();
+          navEl.select();
+        }
+        if (!inField && (e.key === "f" || e.key === "F")) {
+          e.preventDefault();
+          fitToView();
+        }
+      });
+
+      // ── radar (insight feed) ──
+      let radarFilter = null; // null = all, else person name
+      function urgencyBucket(u) {
+        return u >= 0.75 ? "crit" : u >= 0.55 ? "high" : u >= 0.35 ? "med" : "low";
+      }
+      function renderRadar() {
+        const list = I.filter((i) => !radarFilter || i.person === radarFilter);
+        document.getElementById("radar-count").textContent = list.length;
+        document.getElementById("radar-filter").textContent = radarFilter
+          ? `filter: ${radarFilter} · click again to clear`
+          : "all people · ranked by urgency";
+        const el = document.getElementById("radar-list");
+        if (!list.length) {
+          el.innerHTML = '<div class="insight-empty">no new insights</div>';
+          return;
+        }
+        el.innerHTML = list
+          .slice(0, 30)
+          .map((i, idx) => {
+            const cls = urgencyBucket(i.urgency);
+            const evHtml = (i.evidence || [])
+              .slice(0, 2)
+              .map((q) => `<div class="insight-quote">"${(q.quote || "").replace(/</g, "&lt;")}"</div>`)
+              .join("");
+            return `<div class="insight ${cls}" data-idx="${idx}" onclick="toggleInsight(this,${idx})">
+      <div class="insight-head">
+        <span class="insight-person">${(i.person || "").replace(/</g, "&lt;")}</span>
+        <span class="insight-meta">${i.type} · ${Math.round(i.urgency * 100)}</span>
+      </div>
+      <div class="insight-summary">${(i.summary || "").replace(/</g, "&lt;")}</div>
+      <div class="insight-details">${(i.details || "").replace(/</g, "&lt;")}</div>
+      ${evHtml}
+    </div>`;
+          })
+          .join("");
+      }
+      function toggleInsight(el, idx) {
+        if (el.classList.contains("expanded")) {
+          el.classList.remove("expanded");
+          return;
+        }
+        el.classList.add("expanded");
+        // also focus the person — open their sidebar
+        const ins = I.filter((x) => !radarFilter || x.person === radarFilter)[idx];
+        if (!ins) return;
+        const node = N.find((n) => n.id === ins.person);
+        if (node) {
+          openPerson(node);
+        }
+      }
+      function toggleRadar() {
+        const r = document.getElementById("radar");
+        const b = document.getElementById("radar-btn");
+        r.classList.toggle("collapsed");
+        b.textContent = r.classList.contains("collapsed") ? "show" : "hide";
+      }
+      function setRadarFilter(person) {
+        radarFilter = radarFilter === person ? null : person;
+        renderRadar();
+      }
+      renderRadar();
+
+      const W = innerWidth,
+        H = innerHeight;
+      const C = ["#3a7bd5", "#5b8def", "#f0734a", "#e05a9c", "#50c878", "#8a6fdf", "#df6f8a", "#5bc0be"];
+      const svg = d3.select("#canvas").append("svg").attr("width", W).attr("height", H);
+      const defs = svg.append("defs");
+      ["glow", "sglow"].forEach((id, i) => {
+        const f = defs.append("filter").attr("id", id);
+        f.append("feGaussianBlur")
+          .attr("stdDeviation", i ? 8 : 4)
+          .attr("result", "b");
+        f.append("feMerge")
+          .selectAll("feMergeNode")
+          .data(["b", "SourceGraphic"])
+          .join("feMergeNode")
+          .attr("in", (d) => d);
+      });
+      svg.append("rect").attr("width", W).attr("height", H).attr("fill", "#08080d");
+      // vp = the group everything zoom/pans inside
+      const vp = svg.append("g").attr("class", "vp");
+      const lG = vp.append("g"),
+        nG = vp.append("g");
+      // d3 zoom — drag to pan, wheel to zoom
+      const zoomer = d3
+        .zoom()
+        .scaleExtent([0.1, 5])
+        .filter((e) => !e.ctrlKey && !e.button)
+        .on("zoom", (e) => vp.attr("transform", e.transform));
+      svg.call(zoomer);
+      function fitToView() {
+        const b = nG.node().getBBox();
+        if (!b || !b.width || !b.height) return;
+        const pad = 80;
+        const scale = Math.min(W / (b.width + pad * 2), H / (b.height + pad * 2), 1.4);
+        const tx = W / 2 - (b.x + b.width / 2) * scale;
+        const ty = H / 2 - (b.y + b.height / 2) * scale;
+        svg.transition().duration(450).call(zoomer.transform, d3.zoomIdentity.translate(tx, ty).scale(scale));
+      }
+      // account for left radar (~360px) + right sidebar potential (~460px) when placing the gravity center
+      const sim = d3
+        .forceSimulation(N)
+        .force(
+          "link",
+          d3
+            .forceLink(L)
+            .id((d) => d.id)
+            .distance((d) => 300 - (d.score || 0) * 220),
+        )
+        .force("charge", d3.forceManyBody().strength(-500))
+        .force("center", d3.forceCenter(W / 2, H / 2))
+        .force("collision", d3.forceCollide().radius(55));
+      sim.on("end", fitToView);
+      // also call after simulation has had time to settle, even if 'end' doesn't fire
+      setTimeout(fitToView, 1200);
+      setTimeout(fitToView, 2400);
+      function edgeColor(d) {
+        // warmth -> green; cold -> red; neutral -> blue/gold (self-touching edges)
+        const w = d.warmth || 0;
+        const s = d.source.id || d.source,
+          t = d.target.id || d.target;
+        const sov = s === S || t === S;
+        const alpha = Math.max(0.08, (d.score || 0) * 0.55);
+        if (w >= 0.2) return `rgba(90,180,110,${alpha})`;
+        if (w <= -0.2) return `rgba(200,90,90,${alpha})`;
+        return sov ? `rgba(201,162,39,${alpha})` : `rgba(110,150,200,${alpha})`;
+      }
+      const link = lG
+        .selectAll("line")
+        .data(L)
+        .join("line")
+        .attr("stroke", edgeColor)
+        .attr("stroke-width", (d) => Math.max(0.5, (d.score || 0) * 5))
+        .attr("cursor", "pointer");
+      const node = nG.selectAll("g").data(N).join("g").attr("cursor", "pointer");
+      node
+        .append("circle")
+        .attr("r", (d) =>
+          Math.min(d.isSelf ? 22 : 30, d.isSelf ? 14 + Math.sqrt(d.messages) : 8 + Math.sqrt(d.messages) * 2.5),
+        )
+        .attr("fill", (d, i) => (d.isSelf ? "#c9a227" : C[i % C.length]))
+        .attr("opacity", (d) => (d.isSelf ? 0.95 : 0.8))
+        .attr("filter", (d) => (d.isSelf ? "url(#sglow)" : "url(#glow)"));
+      node
+        .append("text")
+        .text((d) => d.id)
+        .attr("dx", (d) => Math.min(30, (d.isSelf ? 18 : 12) + Math.sqrt(d.messages) * 2))
+        .attr("dy", 4)
+        .attr("fill", (d) => (d.isSelf ? "#c9a227" : "#555"))
+        .attr("font-size", (d) => (d.isSelf ? "14px" : "12px"))
+        .attr("font-weight", (d) => (d.isSelf ? "700" : "500"))
+        .attr("font-family", "DM Sans,sans-serif");
+      node.call(
+        d3
+          .drag()
+          .on("start", (e, d) => {
+            e.sourceEvent.stopPropagation();
+            if (!e.active) sim.alphaTarget(0.3).restart();
+            d.fx = d.x;
+            d.fy = d.y;
+          })
+          .on("drag", (e, d) => {
+            d.fx = e.x;
+            d.fy = e.y;
+          })
+          .on("end", (e, d) => {
+            if (!e.active) sim.alphaTarget(0);
+            d.fx = null;
+            d.fy = null;
+          }),
+      );
+      const tip = document.getElementById("tip");
+      link
+        .on("mouseenter", (e, d) => {
+          const s = d.source.id || d.source,
+            t = d.target.id || d.target;
+          const r = d.recent || {};
+          const total = (r.aToB?.replyCount || 0) + (r.bToA?.replyCount || 0);
+          const w = (d.warmth || 0).toFixed(2);
+          tip.style.display = "block";
+          tip.textContent = `${s} ↔ ${t}  ·  edge ${Math.round((d.score || 0) * 100)}  ·  recent ${total} replies  ·  warmth ${w}`;
+        })
+        .on("mousemove", (e) => {
+          tip.style.left = e.clientX + 10 + "px";
+          tip.style.top = e.clientY - 16 + "px";
+        })
+        .on("mouseleave", () => {
+          tip.style.display = "none";
+        })
+        .on("click", (e, d) => {
+          e.stopPropagation();
+          openPair(d);
+        });
+      function closePair() {
+        document.getElementById("pp").classList.remove("open");
+      }
+      function openPair(d) {
+        const s = d.source.id || d.source,
+          t = d.target.id || d.target;
+        const r = d.recent || {},
+          b = d.baseline || {};
+        const aToB_r = r.aToB || {},
+          bToA_r = r.bToA || {},
+          aToB_b = b.aToB || {},
+          bToA_b = b.bToA || {};
+        const warmth = d.warmth || 0;
+        const wcls = warmth >= 0.2 ? "warm" : warmth <= -0.2 ? "cold" : "neutral";
+        document.getElementById("pp-title").innerHTML =
+          `${s}  <span style="color:#5a5a6a;margin:0 6px">↔</span>  ${t} <span class="pp-warmth ${wcls}">warmth ${warmth.toFixed(2)}</span>`;
+        function fmtLatency(secs) {
+          if (!secs) return "—";
+          if (secs < 60) return Math.round(secs) + "s";
+          if (secs < 3600) return Math.round(secs / 60) + "m";
+          if (secs < 86400) return Math.round(secs / 3600) + "h";
+          return Math.round(secs / 86400) + "d";
+        }
+        function dirRow(label, m) {
+          return `<div class="pp-row"><span>${label}</span><span>${m.replyCount || 0} replies · ${m.initiationCount || 0} init · ${m.mentionCount || 0} mentions · lat ${fmtLatency(m.replyLatencyP50Secs)}</span></div>`;
+        }
+        function tonesHtml(m) {
+          const arr = m.tones || [];
+          if (!arr.length)
+            return '<div class="pp-empty" style="color:#444;font-style:italic;font-size:11px">no specific-addressee tone data</div>';
+          return (
+            '<div class="pp-tones">' +
+            arr
+              .sort((a, b) => b.n - a.n)
+              .slice(0, 6)
+              .map((t) => {
+                const cls = [
+                  "warm",
+                  "supportive",
+                  "playful",
+                  "amused",
+                  "kind",
+                  "curious",
+                  "enthusiastic",
+                  "grateful",
+                ].includes(t.tone)
+                  ? "warm"
+                  : ["hostile", "frustrated", "defensive", "resigned", "annoyed", "cold", "dismissive"].includes(t.tone)
+                    ? "cold"
+                    : "";
+                return `<span class="pp-tone ${cls}">${t.tone} ×${t.n}</span>`;
+              })
+              .join("") +
+            "</div>"
+          );
+        }
+        function topicsHtml(b) {
+          const arr = b.sharedTopics || [];
+          if (!arr.length) return '<span style="color:#444;font-size:11px;font-style:italic">no shared topics</span>';
+          return '<div class="pp-topics">' + arr.map((t) => `<span class="pp-topic">${t}</span>`).join("") + "</div>";
+        }
+        document.getElementById("pp-body").innerHTML = `
+    <div class="pp-grid">
+      <div class="pp-col">
+        <div class="pp-col-h">Baseline (older 75%)</div>
+        ${dirRow(s + " → " + t, aToB_b)}
+        ${dirRow(t + " → " + s, bToA_b)}
+        <div class="pp-row"><span>adjacent exchanges</span><span>${b.adjacentPairs || 0}</span></div>
+        <div class="pp-row"><span>topic overlap</span><span>${Math.round((b.topicOverlap || 0) * 100)}%</span></div>
+        <div class="pp-row"><span>warmth</span><span>${(b.warmth || 0).toFixed(2)}</span></div>
+      </div>
+      <div class="pp-col">
+        <div class="pp-col-h">Recent (last 25%)</div>
+        ${dirRow(s + " → " + t, aToB_r)}
+        ${dirRow(t + " → " + s, bToA_r)}
+        <div class="pp-row"><span>adjacent exchanges</span><span>${r.adjacentPairs || 0}</span></div>
+        <div class="pp-row"><span>topic overlap</span><span>${Math.round((r.topicOverlap || 0) * 100)}%</span></div>
+        <div class="pp-row"><span>warmth</span><span>${(r.warmth || 0).toFixed(2)}</span></div>
+      </div>
+    </div>
+    <div class="pp-sec"><div class="pp-sec-h">${s} → ${t} tone (recent)</div>${tonesHtml(aToB_r)}</div>
+    <div class="pp-sec"><div class="pp-sec-h">${t} → ${s} tone (recent)</div>${tonesHtml(bToA_r)}</div>
+    <div class="pp-sec"><div class="pp-sec-h">shared topics (recent)</div>${topicsHtml(r)}</div>
+  `;
+        document.getElementById("pp").classList.add("open");
+      }
+      function txt(id, v) {
+        const e = document.getElementById(id);
+        e.textContent = v || "awaiting analysis";
+        e.className = "txt" + (v ? "" : " nil");
+      }
+      function openPerson(d) {
+        setRadarFilter(d.id);
+        document.getElementById("sb").classList.add("open");
+        document.getElementById("sn").innerHTML = d.id + (d.isSelf ? '<span class="badge">self</span>' : "");
+        document.getElementById("sm").textContent =
+          d.messages + " msgs · " + d.beh.substantive + " substantive · " + d.themeCount + " themes";
+        txt("s-sum", d.summary);
+        txt("s-id", d.identity);
+        txt("s-ax", d.anxiety);
+        txt("s-ss", d.social_style);
+        txt("s-gr", d.growth);
+        txt("s-vu", d.vulnerability);
+        const b = d.beh;
+        document.getElementById("beh").innerHTML = [
+          ["self-ref %", b.selfRef],
+          ["certainty", b.certainty],
+          ["vocab div", b.vocabDiv],
+          ["analytical %", b.analytical],
+          ["emo valence", b.valence],
+          ["clout", b.clout],
+          ["authenticity", b.authenticity],
+          ["avg word len", b.avgWordLen],
+          ["substantive", b.substantive],
+          ["avg msg len", b.avgMsgLen],
+          ["question rate", b.questionRate],
+          ["other-ref %", b.otherRef],
+        ]
+          .map(
+            ([n, v]) =>
+              `<div class="beh-item"><div class="beh-val">${typeof v === "number" ? (v % 1 === 0 ? v : v.toFixed(2)) : v}</div><div class="beh-name">${n}</div></div>`,
+          )
+          .join("");
+        const rs = document.getElementById("rx-sec");
+        if (d.reaction && !d.isSelf) {
+          rs.style.display = "block";
+          const r = d.reaction;
+          document.getElementById("rx").innerHTML = [
+            [Math.round(r.avgReply), "avg reply len"],
+            [r.questions, "questions asked"],
+            [r.sovInit, "you initiated"],
+            [r.otherInit, "they initiated"],
+            [r.mirroring.toFixed(2), "mirroring"],
+          ]
+            .map(
+              ([v, n]) => `<div class="beh-item"><div class="beh-val">${v}</div><div class="beh-name">${n}</div></div>`,
+            )
+            .join("");
+        } else {
+          rs.style.display = "none";
+        }
+        // cognitive style markers (z-scored across the corpus) — with baseline→recent trend
+        const cg = d.cognitive || {};
+        const cgr = d.cognitiveRecent || {};
+        function trendArrow(oldV, newV) {
+          if (oldV == null || newV == null || isNaN(oldV) || isNaN(newV)) return "";
+          const scale = Math.max(Math.abs(oldV), 0.1);
+          const pct = (newV - oldV) / scale;
+          if (pct > 0.2) return '<span class="cog-trend up">↑↑ ' + newV.toFixed(2) + "</span>";
+          if (pct > 0.07) return '<span class="cog-trend up">↑ ' + newV.toFixed(2) + "</span>";
+          if (pct < -0.2) return '<span class="cog-trend down">↓↓ ' + newV.toFixed(2) + "</span>";
+          if (pct < -0.07) return '<span class="cog-trend down">↓ ' + newV.toFixed(2) + "</span>";
+          return '<span class="cog-trend flat">→ ' + newV.toFixed(2) + "</span>";
+        }
+        const cogRows = [
+          ["abstract rate", cg.abstractRate, cg.zAbstract, trendArrow(cg.abstractRate, cgr.abstractRate)],
+          [
+            "conditional rate",
+            cg.conditionalRate,
+            cg.zConditional,
+            trendArrow(cg.conditionalRate, cgr.conditionalRate),
+          ],
+          [
+            "integrative complexity",
+            cg.integrativeComplexity,
+            cg.zIntegrative,
+            trendArrow(cg.integrativeComplexity, cgr.integrativeComplexity),
+          ],
+          [
+            "lexical complexity",
+            cg.lexicalComplexity,
+            cg.zLexical,
+            trendArrow(cg.lexicalComplexity, cgr.lexicalComplexity),
+          ],
+          ["domain breadth", cg.domainBreadth, cg.zBreadth, ""],
+          ["self-monitoring", cg.selfMonitoring, cg.zSelfMonitoring, trendArrow(cg.selfMonitoring, cgr.selfMonitoring)],
+        ];
+        function zbar(z) {
+          if (z == null || isNaN(z)) return '<span class="zbar"></span>';
+          const clamped = Math.max(-2.5, Math.min(2.5, z));
+          const pos = 50 + (clamped / 2.5) * 40;
+          const w = Math.abs(clamped / 2.5) * 40;
+          const left = clamped >= 0 ? 50 : pos;
+          const col = clamped >= 0 ? "#3a7bd5" : "#c87a7a";
+          return `<span class="zbar"><span class="zbar-zero"></span><span class="zbar-fill" style="left:${left}%;width:${w}%;background:${col}"></span></span>`;
+        }
+        document.getElementById("cog").innerHTML = cogRows
+          .map(([n, v, z, trend]) => {
+            const vs = typeof v === "number" ? (v % 1 === 0 ? v : v.toFixed(2)) : v || "—";
+            const zs = z == null || isNaN(z) ? "" : `<span class="cog-z">z=${z.toFixed(2)}</span>`;
+            return `<div class="cog-item"><div class="cog-name">${n}</div><div class="cog-val">${vs}${zs}${trend || ""}</div>${zbar(z)}</div>`;
+          })
+          .join("");
+        document.getElementById("cog-disclaimer").textContent =
+          "Baseline → recent quartile (last 25% by time). Arrows show shift. " +
+          (cg.sampleSize || 0) +
+          " total / " +
+          (cgr.sampleSize || 0) +
+          " recent substantive messages. No IQ. No MBTI.";
+
+        // big five signals — citations only, no score
+        const bf = d.bigFive || {};
+        const bfDims = [
+          ["openness", "Openness"],
+          ["conscientiousness", "Conscientiousness"],
+          ["extraversion", "Extraversion"],
+          ["agreeableness", "Agreeableness"],
+          ["neuroticism", "Neuroticism"],
+        ];
+        document.getElementById("bf").innerHTML = bfDims
+          .map(([k, label]) => {
+            const items = bf[k] || [];
+            const quotes = items.length
+              ? items
+                  .slice(0, 4)
+                  .map((q) => `<div class="bf-q">"${(q.quote || "").replace(/</g, "&lt;")}"</div>`)
+                  .join("")
+              : '<div class="bf-q" style="opacity:.4">no clear signals</div>';
+            return `<div class="bf-row"><div class="bf-name">${label}<span class="bf-count">${items.length}</span></div>${quotes}</div>`;
+          })
+          .join("");
+
+        // self-claims vs observed
+        const claims = d.selfClaims || [];
+        const claimsEl = document.getElementById("claims");
+        if (claims.length) {
+          claimsEl.innerHTML = claims
+            .slice(0, 10)
+            .map((c) => {
+              const cls = "claim-verdict-" + (c.verdict || "unverifiable");
+              const ev = (c.behavioralEvidence || [])
+                .slice(0, 2)
+                .map((e) => `<div class="claim-ev">→ "${(e.quote || "").replace(/</g, "&lt;")}"</div>`)
+                .join("");
+              return `<div class="claim">
+        <div class="claim-text">"${(c.claim || "").replace(/</g, "&lt;")}"</div>
+        <div class="claim-meta"><span class="${cls}">${c.verdict || "unverifiable"}</span> · ${c.dimension || "—"}</div>
+        <div class="claim-rationale">${c.rationale || ""}</div>${ev}
+      </div>`;
+            })
+            .join("");
+        } else {
+          claimsEl.innerHTML = '<div class="txt nil">no extracted self-claims</div>';
+        }
+
+        const mx = Math.max(1, ...d.themes.map((t) => t.msgCount || t.count));
+        // sort active themes to the top so they're seen first
+        const themesSorted = [...d.themes].sort((a, b) => {
+          const score = (t) => (t.temporalStatus === "active" ? 2 : t.temporalStatus === "stable" ? 1 : 0);
+          if (score(b) !== score(a)) return score(b) - score(a);
+          return (b.confidence || 0) - (a.confidence || 0);
+        });
+        document.getElementById("themes").innerHTML = themesSorted
+          .map((t) => {
+            const conf = t.confidence;
+            const hue = conf > 0.7 ? "#2a6a3a" : conf > 0.4 ? "#6a5a2a" : "#6a2a2a";
+            const support = (t.support || [])
+              .slice(0, 3)
+              .map((q) => `<div class="theme-support-q">"${(q.quote || "").replace(/</g, "&lt;")}"</div>`)
+              .join("");
+            const falsify =
+              (t.falsificationsChecked || 0) > 0
+                ? `<div class="theme-falsify">falsifications: ${t.falsificationsConfirmed || 0}/${t.falsificationsChecked} confirmed · recent-share ${(t.recentShare || 0).toFixed(2)}</div>`
+                : "";
+            const summary = t.falsificationSummary
+              ? `<div class="theme-falsify" style="font-style:italic">${t.falsificationSummary.replace(/</g, "&lt;")}</div>`
+              : "";
+            const status =
+              t.temporalStatus && t.temporalStatus !== "unknown"
+                ? `<span class="theme-status ${t.temporalStatus}">${t.temporalStatus}</span>`
+                : "";
+            return `<div class="theme"><div class="theme-head"><span class="theme-name">${t.name}${status}</span>
+    <span class="theme-meta">${t.msgCount || t.count} msgs · ${Math.round(conf * 100)}%</span></div>
+    <div class="theme-bar" style="width:${Math.round(((t.msgCount || t.count) / mx) * 100)}%;background:${hue}"></div>
+    <div class="theme-analysis">${t.analysis}</div>
+    ${support ? `<div class="theme-support">${support}</div>` : ""}
+    ${falsify}${summary}
+    </div>`;
+          })
+          .join("");
+        // predictions
+        const predsEl = document.getElementById("preds");
+        if (d.predictions && d.predictions.length) {
+          predsEl.innerHTML = d.predictions
+            .map((p) => {
+              const pct = Math.round(p.confidence * 100);
+              return `<div class="pred">
+        <div class="pred-action">${p.action}</div>
+        <div class="pred-meta">
+          <span class="pred-conf"><span class="pred-conf-fill" style="width:${pct}%"></span></span>
+          ${pct}% · ${p.timeframe}
+        </div>
+        ${p.evidence.length ? `<div class="pred-evidence">${p.evidence.join(" · ")}</div>` : ""}
+      </div>`;
+            })
+            .join("");
+        } else {
+          predsEl.innerHTML = '<div class="txt nil">no active predictions</div>';
+        }
+
+        // per-person insights in the sidebar
+        const personInsights = I.filter((x) => x.person === d.id);
+        const isec = document.getElementById("insights-sec");
+        if (personInsights.length) {
+          isec.style.display = "block";
+          document.getElementById("person-insights").innerHTML = personInsights
+            .slice(0, 10)
+            .map((ins) => {
+              const cls = urgencyBucket(ins.urgency);
+              const ev = (ins.evidence || [])
+                .slice(0, 2)
+                .map((q) => `<div class="insight-quote">"${(q.quote || "").replace(/</g, "&lt;")}"</div>`)
+                .join("");
+              return `<div class="insight ${cls} expanded">
+        <div class="insight-head"><span class="insight-meta">${ins.type} · urgency ${Math.round(ins.urgency * 100)}</span></div>
+        <div class="insight-summary">${ins.summary.replace(/</g, "&lt;")}</div>
+        <div class="insight-details">${(ins.details || "").replace(/</g, "&lt;")}</div>${ev}
+      </div>`;
+            })
+            .join("");
+        } else {
+          isec.style.display = "none";
+        }
+      }
+      node.on("click", (e, d) => openPerson(d));
+      sim.on("tick", () => {
+        link
+          .attr("x1", (d) => d.source.x)
+          .attr("y1", (d) => d.source.y)
+          .attr("x2", (d) => d.target.x)
+          .attr("y2", (d) => d.target.y);
+        node.attr("transform", (d) => `translate(${d.x},${d.y})`);
+      });
+    </script>
+  </body>
+</html>

@@ -1,0 +1,15 @@
+{
+  "self_name": "you",
+  "self_handles": [
+    "you",
+    "Me",
+    "YourPrimaryHandle",
+    "yourprimaryhandle",
+    "AnotherHandleYouUsed"
+  ],
+  "aliases": {
+    "alice": ["AliceSmith", "alicia_s", "Alice (work)", "alice_old_handle"],
+    "bob": ["bobby", "RobertWilson", "bob_b"],
+    "charlie": ["charlie_w", "CharlieW"]
+  }
+}
